@@ -1,0 +1,12 @@
+.DS_Store
+.build/
+.swiftpm/
+dist/
+Syllabi.dmg
+*.xcuserstate
+xcuserdata/
+*.xcodeproj/xcuserdata/
+graphify-out/
+/.planning/
+/.graphifyignore
+/.vscode/
