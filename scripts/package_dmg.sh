@@ -21,7 +21,8 @@ DMG_OUTPUT="$PROJECT_DIR/Syllabi.dmg"
 echo "==> Building Release executable..."
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift build -c release
 
-BIN_PATH="$PROJECT_DIR/.build/out/Products/Release/Syllabi"
+BIN_DIR="$(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift build -c release --show-bin-path)"
+BIN_PATH="$BIN_DIR/Syllabi"
 if [ ! -f "$BIN_PATH" ]; then
     echo "Error: Release binary not found at $BIN_PATH"
     exit 1
