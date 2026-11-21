@@ -12,6 +12,7 @@ public final class Subject {
     public var colorHex: String = "#3652FD"
     public var createdAt: Date = Date()
     @Attribute(.externalStorage) public var customIconData: Data? = nil
+    public var customIconScale: Double = 1.0
     public var isHidden: Bool = false
 
     @Relationship(deleteRule: .cascade, inverse: \SyllabusUnit.subject)
@@ -26,6 +27,7 @@ public final class Subject {
         colorHex: String = "#3652FD",
         createdAt: Date = Date(),
         customIconData: Data? = nil,
+        customIconScale: Double = 1.0,
         isHidden: Bool = false
     ) {
         self.id = id
@@ -36,6 +38,7 @@ public final class Subject {
         self.colorHex = colorHex
         self.createdAt = createdAt
         self.customIconData = customIconData
+        self.customIconScale = customIconScale
         self.isHidden = isHidden
     }
 

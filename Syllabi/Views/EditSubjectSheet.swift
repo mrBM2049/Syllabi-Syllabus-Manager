@@ -113,6 +113,19 @@ public struct EditSubjectSheet: View {
                         .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
                     }
 
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Icon size")
+                                .font(.system(size: 11, weight: .semibold))
+                            Spacer()
+                            Text("\(Int(subject.customIconScale * 100))%")
+                                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                .foregroundStyle(Color.secondary)
+                        }
+                        Slider(value: $subject.customIconScale, in: 0.75...1.2, step: 0.05)
+                            .disabled(subject.customImage == nil)
+                    }
+
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 8), spacing: 6) {
                         ForEach(availableIcons, id: \.self) { iconName in
                             Button(action: {

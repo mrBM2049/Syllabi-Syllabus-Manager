@@ -78,6 +78,22 @@ public struct SubjectIconPickerView: View {
                 )
             }
 
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Icon size")
+                        .font(.system(size: 11, weight: .semibold))
+                    Spacer()
+                    Text("\(Int(subject.customIconScale * 100))%")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Color.secondary)
+                }
+                Slider(value: $subject.customIconScale, in: 0.75...1.2, step: 0.05)
+                    .disabled(subject.customImage == nil)
+                Text("Keeps a safe margin around the icon")
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(Color.secondary)
+            }
+
             // SF Symbol Grid (4x4, well-spaced)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
                 ForEach(availableIcons, id: \.self) { symbol in

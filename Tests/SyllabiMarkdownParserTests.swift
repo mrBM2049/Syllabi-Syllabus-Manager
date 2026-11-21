@@ -3,6 +3,13 @@ import XCTest
 
 final class SyllabusMarkdownParserTests: XCTestCase {
 
+    func testSyllabusExpressionDisplayFormatting() {
+        XCTAssertEqual(
+            SyllabusTextFormatter.display("($f = F/F_s$), $\\delta[n]$, u[n], u_r[n], a^n$"),
+            "(f = F/F_s), δ[n], u[n], u_r[n], a^n"
+        )
+    }
+
     func testStandardSyllabusParsing() {
         let markdown = """
         ---

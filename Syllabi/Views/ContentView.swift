@@ -4,7 +4,6 @@ import UniformTypeIdentifiers
 
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.undoManager) private var undoManager
     @Query(sort: \Subject.createdAt, order: .forward) private var subjects: [Subject]
 
     @State private var selection: SidebarSelection = .dashboard
@@ -25,6 +24,7 @@ public struct ContentView: View {
     @State private var blankIcon = "book.closed.fill"
     @State private var blankColorHex = "#3652FD"
     @State private var blankCustomIconData: Data? = nil
+    @State private var blankCustomIconScale = 1.0
 
     public init() {}
 
@@ -90,24 +90,6 @@ public struct ContentView: View {
                 // Global Top Navigation Bar: Compact, clean liquid glass buttons
                 ToolbarItemGroup(placement: .primaryAction) {
                     HStack(spacing: 8) {
-                        Button {
-                            undoManager?.undo()
-                        } label: {
-                            Image(systemName: "arrow.uturn.backward")
-                        }
-                        .buttonStyle(.liquidGlass(cornerRadius: 10))
-                        .disabled(!(undoManager?.canUndo ?? false))
-                        .help("Undo (⌘Z)")
-
-                        Button {
-                            undoManager?.redo()
-                        } label: {
-                            Image(systemName: "arrow.uturn.forward")
-                        }
-                        .buttonStyle(.liquidGlass(cornerRadius: 10))
-                        .disabled(!(undoManager?.canRedo ?? false))
-                        .help("Redo (⇧⌘Z)")
-
                         // 1. Copy AI Prompt Button (Crisp Sparkles Icon)
                         Button(action: copyAIPrompt) {
                             Label("Copy AI prompt", systemImage: "wand.and.stars")
@@ -243,6 +225,7 @@ public struct ContentView: View {
         blankIcon = "book.closed.fill"
         blankColorHex = "#3652FD"
         blankCustomIconData = nil
+        blankCustomIconScale = 1.0
         isShowingNewCourseSheet = true
     }
 
@@ -341,6 +324,17 @@ public struct ContentView: View {
                     .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.04)))
                 }
 
+                if blankCustomIconData != nil {
+                    HStack {
+                        Text("Icon size")
+                            .font(.system(size: 11, weight: .semibold))
+                        Slider(value: $blankCustomIconScale, in: 0.75...1.2, step: 0.05)
+                        Text("\(Int(blankCustomIconScale * 100))%")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(Color.secondary)
+                    }
+                }
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Cover color & hex:")
                         .font(.system(size: 12))
@@ -398,7 +392,8 @@ public struct ContentView: View {
             term: blankTerm.trimmingCharacters(in: .whitespaces),
             icon: blankIcon.isEmpty ? "book.closed.fill" : blankIcon,
             colorHex: blankColorHex,
-            customIconData: blankCustomIconData
+            customIconData: blankCustomIconData,
+            customIconScale: blankCustomIconScale
         )
         let defaultUnit = SyllabusUnit(title: "Unit 1: Foundations", orderIndex: 0, subject: newSubject)
         newSubject.units.append(defaultUnit)

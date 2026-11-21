@@ -17,7 +17,10 @@ public struct SubjectIconView: View {
             Image(nsImage: customImage)
                 .resizable()
                 .scaledToFit()
-                .frame(width: size, height: size)
+                .frame(
+                    width: size * min(1.2, max(0.75, subject.customIconScale)),
+                    height: size * min(1.2, max(0.75, subject.customIconScale))
+                )
                 .clipShape(RoundedRectangle(cornerRadius: max(3, size * 0.22), style: .continuous))
         } else {
             Image(systemName: subject.sfSymbolName)

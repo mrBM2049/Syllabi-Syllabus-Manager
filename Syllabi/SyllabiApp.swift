@@ -54,11 +54,13 @@ struct SyllabiApp: App {
                     NSApp.sendAction(#selector(UndoManager.undo), to: nil, from: nil)
                 }
                 .keyboardShortcut("z", modifiers: .command)
+                .disabled(!(NSApp.keyWindow?.undoManager?.canUndo ?? false))
 
                 Button("Redo") {
                     NSApp.sendAction(#selector(UndoManager.redo), to: nil, from: nil)
                 }
                 .keyboardShortcut("z", modifiers: [.command, .shift])
+                .disabled(!(NSApp.keyWindow?.undoManager?.canRedo ?? false))
             }
         }
     }

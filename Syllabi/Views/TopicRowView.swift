@@ -68,9 +68,12 @@ public struct TopicRowView: View {
                         .font(.system(size: 13.5, weight: .regular))
                         .focused($isTitleFocused)
                         .onSubmit { saveTitle() }
-                        .onExitCommand { isEditingTitle = false }
+                        .onExitCommand { saveTitle() }
+                        .onChange(of: isTitleFocused) { _, focused in
+                            if !focused && isEditingTitle { saveTitle() }
+                        }
                 } else {
-                    Text(topic.title)
+                    Text(SyllabusTextFormatter.display(topic.title))
                         .font(.system(size: 13.5, weight: topic.isCompleted ? .regular : .semibold))
                         .foregroundStyle(topic.isCompleted ? Color.secondary.opacity(0.65) : Color.primary)
                         .strikethrough(topic.isCompleted, color: Color.secondary.opacity(0.4))
@@ -287,9 +290,12 @@ public struct SubtopicRowView: View {
                         .font(.system(size: 12.5, weight: .regular))
                         .focused($isTitleFocused)
                         .onSubmit { saveTitle() }
-                        .onExitCommand { isEditingTitle = false }
+                        .onExitCommand { saveTitle() }
+                        .onChange(of: isTitleFocused) { _, focused in
+                            if !focused && isEditingTitle { saveTitle() }
+                        }
                 } else {
-                    Text(subtopic.title)
+                    Text(SyllabusTextFormatter.display(subtopic.title))
                         .font(.system(size: 12.5, weight: subtopic.isCompleted ? .regular : .medium))
                         .foregroundStyle(subtopic.isCompleted ? Color.secondary.opacity(0.65) : Color.primary)
                         .strikethrough(subtopic.isCompleted, color: Color.secondary.opacity(0.4))

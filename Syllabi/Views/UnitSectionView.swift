@@ -99,7 +99,7 @@ public struct UnitSectionView: View {
                         .onSubmit { saveTitle() }
                         .onExitCommand { isEditingTitle = false }
                 } else {
-                    Text(unit.title)
+                    Text(SyllabusTextFormatter.display(unit.title))
                         .font(.system(size: 14.5, weight: .bold))
                         .foregroundStyle(.primary)
                         .contentShape(Rectangle())
