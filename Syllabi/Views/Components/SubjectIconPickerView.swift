@@ -34,7 +34,7 @@ public struct SubjectIconPickerView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "photo.badge.plus")
                             .font(.system(size: 11))
-                        Text("Upload & remove background")
+                        Text("Custom Icon")
                             .font(.system(size: 11, weight: .medium))
                     }
                     .padding(.horizontal, 6)

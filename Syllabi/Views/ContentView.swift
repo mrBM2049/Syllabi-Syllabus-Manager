@@ -317,7 +317,7 @@ public struct ContentView: View {
                 HStack {
                     TextField("SF Symbol icon (e.g. laptopcomputer):", text: $blankIcon)
 
-                    Button("Upload & remove background") {
+                    Button("Custom Icon") {
                         uploadBlankIcon()
                     }
                     .buttonStyle(.liquidGlass)
