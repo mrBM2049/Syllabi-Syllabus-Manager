@@ -34,13 +34,13 @@ public struct SubjectIconPickerView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "photo.badge.plus")
                             .font(.system(size: 11))
-                        Text("Upload .ico")
+                        Text("Upload & remove background")
                             .font(.system(size: 11, weight: .medium))
                     }
                     .padding(.horizontal, 6)
                 }
                 .buttonStyle(.liquidGlass)
-                .help("Upload custom .ico, .png, or .icns icon file")
+                .help("Choose any image; Vision removes its background and creates a transparent icon")
             }
 
             // Custom icon preview banner if active
@@ -128,17 +128,16 @@ public struct SubjectIconPickerView: View {
         openPanel.allowsMultipleSelection = false
         openPanel.canChooseDirectories = false
         openPanel.canChooseFiles = true
-        openPanel.message = "Choose an .ico or image file for this course notebook"
+        openPanel.message = "Choose any image for this course notebook"
 
         openPanel.begin { response in
             if response == .OK, let url = openPanel.url {
-                do {
-                    let data = try Data(contentsOf: url)
-                    if NSImage(data: data) != nil {
-                        subject.customIconData = data
+                Task {
+                    do {
+                        subject.customIconData = try await IconProcessingService.transparentIconData(from: url)
+                    } catch {
+                        print("Error processing custom icon: \(error.localizedDescription)")
                     }
-                } catch {
-                    print("Error loading custom icon file: \(error)")
                 }
             }
         }

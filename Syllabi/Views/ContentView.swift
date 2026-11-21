@@ -305,7 +305,7 @@ public struct ContentView: View {
                 HStack {
                     TextField("SF Symbol icon (e.g. laptopcomputer):", text: $blankIcon)
 
-                    Button("Upload .ico") {
+                    Button("Upload & remove background") {
                         uploadBlankIcon()
                     }
                     .buttonStyle(.liquidGlass)
@@ -365,8 +365,12 @@ public struct ContentView: View {
 
         openPanel.begin { response in
             if response == .OK, let url = openPanel.url {
-                if let data = try? Data(contentsOf: url), NSImage(data: data) != nil {
-                    blankCustomIconData = data
+                Task {
+                    do {
+                        blankCustomIconData = try await IconProcessingService.transparentIconData(from: url)
+                    } catch {
+                        print("Error processing custom icon: \(error.localizedDescription)")
+                    }
                 }
             }
         }
