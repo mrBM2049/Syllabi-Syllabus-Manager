@@ -15,6 +15,8 @@ public struct ContentView: View {
     @State private var isShowingWhatsNew = false
     @StateObject private var updateService = AppUpdateService()
     @AppStorage("lastSeenWhatsNewVersion") private var lastSeenWhatsNewVersion = ""
+    @AppStorage("lastPromptedUpdateVersion") private var lastPromptedUpdateVersion = ""
+    @State private var isShowingUpdatePrompt = false
 
     // Blank course form fields
     @State private var blankTitle = ""
@@ -43,7 +45,11 @@ public struct ContentView: View {
                 },
                 onExportSubject: { subject in
                     SyllabusShareHelper.saveSubjectToFile(subject)
-                }
+                },
+                updateAvailable: updateService.hasUpdate,
+                updateVersion: updateService.latestRelease?.version ?? "",
+                isUpdating: updateService.isDownloading,
+                onUpdateClicked: startUpdate
             )
         } detail: {
             ZStack {
@@ -145,17 +151,6 @@ public struct ContentView: View {
                         .menuStyle(.borderlessButton)
                         .help("Add Course: Create new notebook or import .md (Cmd+N / Cmd+I)")
 
-                        if updateService.hasUpdate {
-                            Button {
-                                Task { await updateService.downloadAndOpenLatestRelease() }
-                            } label: {
-                                Label(updateService.isDownloading ? "Downloading…" : "Update", systemImage: "arrow.down.circle")
-                                    .font(.system(size: 11.5, weight: .semibold))
-                            }
-                            .buttonStyle(.liquidGlass(prominent: true, cornerRadius: 10))
-                            .disabled(updateService.isDownloading)
-                            .help("Download the latest GitHub release")
-                        }
                     }
                     .padding(.leading, 8)
                 }
@@ -195,6 +190,12 @@ public struct ContentView: View {
                 releaseNotes: updateService.latestRelease?.body ?? ""
             )
         }
+        .alert("Update available", isPresented: $isShowingUpdatePrompt) {
+            Button("Update now") { startUpdate() }
+            Button("Not now", role: .cancel) {}
+        } message: {
+            Text("Syllabi \(updateService.latestRelease?.version ?? "") is ready. Would you like to download it now?")
+        }
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
             handleGlobalDrop(providers: providers)
         }
@@ -218,11 +219,22 @@ public struct ContentView: View {
                 modelContext.undoManager = UndoManager()
             }
             await updateService.checkForUpdates()
+            if updateService.hasUpdate,
+               let version = updateService.latestRelease?.version,
+               lastPromptedUpdateVersion != version {
+                lastPromptedUpdateVersion = version
+                isShowingUpdatePrompt = true
+            }
             if lastSeenWhatsNewVersion != updateService.currentVersion {
                 lastSeenWhatsNewVersion = updateService.currentVersion
                 isShowingWhatsNew = true
             }
         }
+    }
+
+    private func startUpdate() {
+        isShowingUpdatePrompt = false
+        Task { await updateService.downloadAndOpenLatestRelease() }
     }
     private func resetAndOpenNewCourse() {
         blankTitle = ""

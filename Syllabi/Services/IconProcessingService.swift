@@ -1,5 +1,4 @@
 import CoreImage
-import CoreImage.CIFilterBuiltins
 import ImageIO
 import Vision
 
@@ -39,24 +38,17 @@ enum IconProcessingService {
             throw IconProcessingError.foregroundNotFound
         }
 
-        let mask = try observation.generateScaledMaskForImage(
-            forInstances: observation.allInstances,
-            from: handler
+        let maskedImage = try observation.generateMaskedImage(
+            ofInstances: observation.allInstances,
+            from: handler,
+            croppedToInstancesExtent: true
         )
-        let sourceImage = CIImage(cgImage: image)
-        let filter = CIFilter.blendWithMask()
-        filter.inputImage = sourceImage
-        filter.backgroundImage = CIImage(color: .clear).cropped(to: sourceImage.extent)
-        filter.maskImage = CIImage(cvPixelBuffer: mask)
 
-        guard
-            let outputImage = filter.outputImage,
-            let outputData = CIContext().pngRepresentation(
-                of: outputImage,
-                format: .RGBA8,
-                colorSpace: CGColorSpaceCreateDeviceRGB()
-            )
-        else { throw IconProcessingError.exportFailed }
+        guard let outputData = CIContext().pngRepresentation(
+            of: CIImage(cvPixelBuffer: maskedImage),
+            format: .RGBA8,
+            colorSpace: CGColorSpaceCreateDeviceRGB()
+        ) else { throw IconProcessingError.exportFailed }
 
         return outputData
     }
