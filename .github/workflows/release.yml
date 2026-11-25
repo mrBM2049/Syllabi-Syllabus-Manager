@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   release:
+    if: github.ref_type == 'tag'
     runs-on: macos-15
     steps:
       - name: Check out source
@@ -25,10 +26,36 @@ jobs:
         run: swift test
 
       - name: Build DMG
+        env:
+          SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
         run: RELEASE_VERSION="${GITHUB_REF_NAME#v}" ./scripts/package_dmg.sh
 
+      - name: Sign the update and appcast
+        id: signing
+        env:
+          SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
+          SPARKLE_PRIVATE_ED_KEY: ${{ secrets.SPARKLE_PRIVATE_ED_KEY }}
+        run: |
+          if [[ -z "$SPARKLE_PUBLIC_ED_KEY" && -z "$SPARKLE_PRIVATE_ED_KEY" ]]; then
+            echo "::warning::Sparkle signing is unset. This release will be available as a manual DMG."
+          elif [[ -z "$SPARKLE_PUBLIC_ED_KEY" ]]; then
+            echo "::error::Set SPARKLE_PUBLIC_ED_KEY to match the signing key."
+            exit 1
+          elif [[ -z "$SPARKLE_PRIVATE_ED_KEY" ]]; then
+            echo "::notice::The signing key is kept offline. Publish the locally signed Syllabi.dmg and appcast.xml."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          else
+            bash scripts/sign_appcast.sh
+          fi
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+
       - name: Publish GitHub release
+        if: steps.signing.outputs.publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: Syllabi.dmg
+          fail_on_unmatched_files: true
+          files: |
+            Syllabi.dmg
+            ${{ vars.SPARKLE_PUBLIC_ED_KEY != '' && 'dist/appcast.xml' || '' }}

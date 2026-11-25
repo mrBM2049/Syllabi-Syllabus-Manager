@@ -4,6 +4,7 @@ import AppKit
 
 @main
 struct SyllabiApp: App {
+    @NSApplicationDelegateAdaptor(UpdateConsentAppDelegate.self) private var updateConsentDelegate
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Subject.self,
@@ -49,20 +50,14 @@ struct SyllabiApp: App {
                 }
                 .keyboardShortcut("s", modifiers: .command)
             }
-            CommandGroup(replacing: .undoRedo) {
-                Button("Undo") {
-                    NSApp.sendAction(#selector(UndoManager.undo), to: nil, from: nil)
-                }
-                .keyboardShortcut("z", modifiers: .command)
-                .disabled(!(NSApp.keyWindow?.undoManager?.canUndo ?? false))
-
-                Button("Redo") {
-                    NSApp.sendAction(#selector(UndoManager.redo), to: nil, from: nil)
-                }
-                .keyboardShortcut("z", modifiers: [.command, .shift])
-                .disabled(!(NSApp.keyWindow?.undoManager?.canRedo ?? false))
-            }
         }
+    }
+}
+
+private final class UpdateConsentAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Sparkle can install a staged update on quit. Keep normal quit behind the consent prompt.
+        SparkleUpdateInstaller.shared.isAwaitingInstallConsent ? .terminateCancel : .terminateNow
     }
 }
 

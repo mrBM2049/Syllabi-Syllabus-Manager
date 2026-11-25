@@ -497,7 +497,7 @@ public struct CalendarScheduleView: View {
 
             // Topic Title
             VStack(alignment: .leading, spacing: 1) {
-                Text(topic.title)
+                Text(SyllabusTextFormatter.display(topic.title))
                     .font(.system(size: 12, weight: topic.isCompleted ? .regular : .medium))
                     .foregroundStyle(topic.isCompleted ? Color.secondary : Color.primary)
                     .strikethrough(topic.isCompleted, color: Color.secondary.opacity(0.4))

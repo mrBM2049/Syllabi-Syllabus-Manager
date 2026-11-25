@@ -15,9 +15,12 @@ public struct ImportSyllabusSheet: View {
     @State private var isTargetedForDrop = false
     @State private var isFileImporterPresented = false
     @State private var showCopiedToast = false
+    @State private var importError: String?
+    private let initialFileURL: URL?
 
-    public init(initialMarkdown: String = "", onImportSuccess: ((Subject) -> Void)? = nil) {
+    public init(initialMarkdown: String = "", initialFileURL: URL? = nil, onImportSuccess: ((Subject) -> Void)? = nil) {
         self._rawMarkdown = State(initialValue: initialMarkdown)
+        self.initialFileURL = initialFileURL
         self.onImportSuccess = onImportSuccess
     }
 
@@ -60,9 +63,19 @@ public struct ImportSyllabusSheet: View {
             }
         }
         .onAppear {
-            if !rawMarkdown.isEmpty {
+            if let initialFileURL {
+                loadFile(from: initialFileURL)
+            } else {
                 updateParsedResult()
             }
+        }
+        .alert("Couldn’t import syllabus", isPresented: Binding(
+            get: { importError != nil },
+            set: { if !$0 { importError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importError ?? "")
         }
         .fileImporter(
             isPresented: $isFileImporterPresented,
@@ -276,20 +289,20 @@ public struct ImportSyllabusSheet: View {
                         Divider()
 
                         // Units Tree
-                        ForEach(parsed.units, id: \.title) { unit in
+                        ForEach(parsed.units, id: \.orderIndex) { unit in
                             VStack(alignment: .leading, spacing: 5) {
-                                Text(unit.title)
+                                Text(SyllabusTextFormatter.display(unit.title))
                                     .font(.system(size: 13, weight: .bold))
                                     .foregroundStyle(.primary)
 
-                                ForEach(unit.topics, id: \.title) { topic in
+                                ForEach(unit.topics, id: \.orderIndex) { topic in
                                     VStack(alignment: .leading, spacing: 2) {
                                         HStack(spacing: 6) {
                                             Image(systemName: topic.isCompleted ? "checkmark.square.fill" : "square")
                                                 .font(.system(size: 11))
                                                 .foregroundStyle(topic.isCompleted ? Color.accentColor : Color.secondary)
 
-                                            Text(topic.title)
+                                            Text(SyllabusTextFormatter.display(topic.title))
                                                 .font(.system(size: 12, weight: .medium))
                                                 .strikethrough(topic.isCompleted, color: Color.secondary.opacity(0.5))
 
@@ -306,12 +319,12 @@ public struct ImportSyllabusSheet: View {
                                         }
 
                                         // Subtopics
-                                        ForEach(topic.subtopics, id: \.title) { sub in
+                                        ForEach(topic.subtopics, id: \.orderIndex) { sub in
                                             HStack(spacing: 5) {
                                                 Image(systemName: sub.isCompleted ? "checkmark.square.fill" : "square")
                                                     .font(.system(size: 9.5))
                                                     .foregroundStyle(sub.isCompleted ? Color.accentColor : Color.secondary)
-                                                Text(sub.title)
+                                                Text(SyllabusTextFormatter.display(sub.title))
                                                     .font(.system(size: 11))
                                                     .strikethrough(sub.isCompleted, color: Color.secondary.opacity(0.5))
                                                 ForEach(sub.tags, id: \.self) { tag in
@@ -361,7 +374,7 @@ public struct ImportSyllabusSheet: View {
 
             Button("Import subject") { confirmImport() }
                 .buttonStyle(.liquidGlass(prominent: true))
-                .disabled(parsedSyllabus == nil || (parsedSyllabus?.units.isEmpty ?? true))
+            .disabled((parsedSyllabus?.totalTopicsCount ?? 0) == 0)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
@@ -371,6 +384,10 @@ public struct ImportSyllabusSheet: View {
     // MARK: - Actions
 
     private func updateParsedResult() {
+        guard rawMarkdown.utf8.count <= SyllabusFile.maximumBytes else {
+            parsedSyllabus = nil
+            return
+        }
         guard !rawMarkdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             parsedSyllabus = nil
             return
@@ -395,30 +412,25 @@ public struct ImportSyllabusSheet: View {
         switch result {
         case .success(let urls):
             guard let url = urls.first else { return }
-            if url.startAccessingSecurityScopedResource() {
-                defer { url.stopAccessingSecurityScopedResource() }
-                loadFile(from: url)
-            } else {
-                loadFile(from: url)
-            }
+            loadFile(from: url)
         case .failure(let error):
-            print("Failed to import file: \(error)")
+            importError = error.localizedDescription
         }
     }
 
     public func loadFile(from url: URL) {
-        selectedFileName = url.lastPathComponent
         do {
-            let content = try String(contentsOf: url, encoding: .utf8)
+            let content = try SyllabusFile.read(url)
+            selectedFileName = url.lastPathComponent
             rawMarkdown = content
             updateParsedResult()
         } catch {
-            print("Error reading file: \(error)")
+            importError = error.localizedDescription
         }
     }
 
     private func confirmImport() {
-        guard let parsed = parsedSyllabus else { return }
+        guard let parsed = parsedSyllabus, parsed.totalTopicsCount > 0 else { return }
 
         let subject = Subject(
             title: parsed.subjectTitle,

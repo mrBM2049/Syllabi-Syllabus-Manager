@@ -18,10 +18,6 @@ public struct SidebarView: View {
     public var onNewCourseClicked: () -> Void
     public var onDropFile: ((URL) -> Void)? = nil
     public var onExportSubject: ((Subject) -> Void)? = nil
-    public var updateAvailable: Bool = false
-    public var updateVersion: String = ""
-    public var isUpdating: Bool = false
-    public var onUpdateClicked: (() -> Void)? = nil
 
     @State private var subjectToEdit: Subject? = nil
     @State private var subjectToDelete: Subject? = nil
@@ -36,11 +32,7 @@ public struct SidebarView: View {
         onImportClicked: @escaping () -> Void,
         onNewCourseClicked: @escaping () -> Void,
         onDropFile: ((URL) -> Void)? = nil,
-        onExportSubject: ((Subject) -> Void)? = nil,
-        updateAvailable: Bool = false,
-        updateVersion: String = "",
-        isUpdating: Bool = false,
-        onUpdateClicked: (() -> Void)? = nil
+        onExportSubject: ((Subject) -> Void)? = nil
     ) {
         self._selection = selection
         self.subjects = subjects
@@ -48,10 +40,6 @@ public struct SidebarView: View {
         self.onNewCourseClicked = onNewCourseClicked
         self.onDropFile = onDropFile
         self.onExportSubject = onExportSubject
-        self.updateAvailable = updateAvailable
-        self.updateVersion = updateVersion
-        self.isUpdating = isUpdating
-        self.onUpdateClicked = onUpdateClicked
     }
 
     private var displayedSubjects: [Subject] {
@@ -180,6 +168,7 @@ public struct SidebarView: View {
                                 Button("Share...") {
                                     SyllabusShareHelper.shareSubject(subject)
                                 }
+                                Button("Copy Syllabus Markdown") { SyllabusShareHelper.copyMarkdown(subject) }
                                 Button("Export as .md...") { onExportSubject?(subject) }
                                 Divider()
                                 Button(role: .destructive) {
@@ -194,19 +183,6 @@ public struct SidebarView: View {
                 }
             }
             .listStyle(.sidebar)
-
-            if updateAvailable {
-                Button(action: { onUpdateClicked?() }) {
-                    Label(isUpdating ? "Downloading…" : "Update to \(updateVersion)", systemImage: "arrow.down.circle.fill")
-                        .font(.system(size: 11.5, weight: .semibold))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.liquidGlass(prominent: true, cornerRadius: 10))
-                .disabled(isUpdating)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .help("Download the latest Syllabi release")
-            }
         }
         .frame(minWidth: 220, idealWidth: 250, maxWidth: 320)
         .onDrop(of: [.fileURL], isTargeted: $isTargetedForDrop) { providers in

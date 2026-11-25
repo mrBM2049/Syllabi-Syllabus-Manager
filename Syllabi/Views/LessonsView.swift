@@ -382,7 +382,7 @@ struct LessonFullRow: View {
 
                 // Topic Title
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(topic.title)
+                    Text(SyllabusTextFormatter.display(topic.title))
                         .font(.system(size: 13, weight: topic.isCompleted ? .regular : .semibold))
                         .foregroundStyle(topic.isCompleted ? Color.secondary.opacity(0.65) : Color.primary)
                         .strikethrough(topic.isCompleted, color: Color.secondary.opacity(0.4))
@@ -417,7 +417,7 @@ struct LessonFullRow: View {
                 .help("Open \(entry.subject.title)")
 
                 // Unit Name
-                Text(entry.unit.title)
+                Text(SyllabusTextFormatter.display(entry.unit.title))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color.secondary)
                     .lineLimit(1)

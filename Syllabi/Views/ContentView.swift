@@ -4,6 +4,8 @@ import UniformTypeIdentifiers
 
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.undoManager) private var undoManager
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \Subject.createdAt, order: .forward) private var subjects: [Subject]
 
     @State private var selection: SidebarSelection = .dashboard
@@ -15,7 +17,7 @@ public struct ContentView: View {
     @StateObject private var updateService = AppUpdateService()
     @AppStorage("lastSeenWhatsNewVersion") private var lastSeenWhatsNewVersion = ""
     @AppStorage("lastPromptedUpdateVersion") private var lastPromptedUpdateVersion = ""
-    @State private var isShowingUpdatePrompt = false
+    @State private var pendingUpdate: AppUpdateService.Release?
 
     // Blank course form fields
     @State private var blankTitle = ""
@@ -45,12 +47,9 @@ public struct ContentView: View {
                 },
                 onExportSubject: { subject in
                     SyllabusShareHelper.saveSubjectToFile(subject)
-                },
-                updateAvailable: updateService.hasUpdate,
-                updateVersion: updateService.latestRelease?.version ?? "",
-                isUpdating: updateService.isDownloading,
-                onUpdateClicked: startUpdate
+                }
             )
+            .safeAreaInset(edge: .bottom, spacing: 0) { updateFooter }
         } detail: {
             ZStack {
                 ambientBackground
@@ -93,11 +92,13 @@ public struct ContentView: View {
                         // 1. Copy AI Prompt Button (Crisp Sparkles Icon)
                         Button(action: copyAIPrompt) {
                             Label("Copy AI prompt", systemImage: "wand.and.stars")
+                                .labelStyle(.titleAndIcon)
                                 .font(.system(size: 10.5, weight: .semibold))
                                 .padding(.horizontal, 2)
                         }
                         .buttonStyle(.liquidGlass(cornerRadius: 10))
                         .fixedSize(horizontal: true, vertical: false)
+                        .keyboardShortcut("c", modifiers: [.command, .shift])
                         .help("Copy AI Syllabus Formatter Prompt (Cmd+Shift+C)")
 
                         // 2. Add Course Menu Button
@@ -159,24 +160,36 @@ public struct ContentView: View {
                 .frame(width: 1, height: 1)
                 .allowsHitTesting(false)
         }
-        .sheet(isPresented: $isShowingImportSheet) {
+        .sheet(isPresented: $isShowingImportSheet, onDismiss: { droppedFileURL = nil }) {
             importSheetContent
         }
         .sheet(isPresented: $isShowingNewCourseSheet) {
             newCourseSheet
         }
         .sheet(isPresented: $isShowingWhatsNew) {
+            let installedRelease = updateService.latestRelease.flatMap {
+                $0.version == updateService.currentVersion ? $0 : nil
+            }
             WhatsNewView(
-                version: updateService.latestRelease?.version ?? updateService.currentVersion,
-                releaseName: updateService.latestRelease?.name ?? "A calmer way to study",
-                releaseNotes: updateService.latestRelease?.body ?? ""
+                version: updateService.currentVersion,
+                releaseName: installedRelease?.name ?? "",
+                releaseNotes: installedRelease?.body ?? ""
             )
         }
-        .alert("Update available", isPresented: $isShowingUpdatePrompt) {
-            Button("Update now") { startUpdate() }
-            Button("Not now", role: .cancel) {}
-        } message: {
-            Text("Syllabi \(updateService.latestRelease?.version ?? "") is ready. Would you like to download it now?")
+        .alert("Update available", isPresented: Binding(
+            get: { pendingUpdate != nil },
+            set: { if !$0 { pendingUpdate = nil } }
+        ), presenting: pendingUpdate) { release in
+            Button(updateService.canInstall(release) ? "Update" : "Download DMG") { downloadUpdate(release) }
+            Button("Not now", role: .cancel) {
+                lastPromptedUpdateVersion = release.version
+            }
+        } message: { release in
+            if updateService.canInstall(release) {
+                Text("Syllabi \(release.version) is available. You can choose when to install after it downloads.")
+            } else {
+                Text("Syllabi \(release.version) is available as a disk image for manual installation.")
+            }
         }
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
             handleGlobalDrop(providers: providers)
@@ -196,27 +209,93 @@ public struct ContentView: View {
         .onChange(of: selection) { _, _ in
             NSApp.keyWindow?.makeFirstResponder(nil)
         }
+        .onChange(of: canPresentUpdate) { _, canPresent in
+            if canPresent { offerUpdateIfReady() }
+        }
+        .onChange(of: updateService.availableUpdate) { _, _ in offerUpdateIfReady() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active && pendingUpdate == nil {
+                Task { await updateService.checkForUpdates() }
+            }
+        }
+        .onChange(of: undoManager, initial: true) { _, manager in
+            modelContext.undoManager = manager
+        }
         .task {
-            if modelContext.undoManager == nil {
-                modelContext.undoManager = UndoManager()
+            if lastSeenWhatsNewVersion != updateService.currentVersion {
+                isShowingWhatsNew = !lastSeenWhatsNewVersion.isEmpty
+                lastSeenWhatsNewVersion = updateService.currentVersion
             }
             await updateService.checkForUpdates()
-            if updateService.hasUpdate,
-               let version = updateService.latestRelease?.version,
-               lastPromptedUpdateVersion != version {
-                lastPromptedUpdateVersion = version
-                isShowingUpdatePrompt = true
-            }
-            if lastSeenWhatsNewVersion != updateService.currentVersion {
-                lastSeenWhatsNewVersion = updateService.currentVersion
-                isShowingWhatsNew = true
+            offerUpdateIfReady()
+        }
+    }
+
+    private var canPresentUpdate: Bool {
+        scenePhase == .active && !isShowingWhatsNew && !isShowingImportSheet && !isShowingNewCourseSheet
+    }
+
+    private func offerUpdateIfReady() {
+        guard canPresentUpdate, pendingUpdate == nil, !updateService.isDownloading, !updateService.isChecking,
+              let release = updateService.availableUpdate, release.version != lastPromptedUpdateVersion else { return }
+        pendingUpdate = release
+    }
+
+    private func downloadUpdate(_ release: AppUpdateService.Release) {
+        lastPromptedUpdateVersion = release.version
+        Task {
+            await updateService.downloadUpdate(expectedTag: release.tagName) {
+                guard !isShowingImportSheet, !isShowingNewCourseSheet else {
+                    throw UnfinishedCourseDraft()
+                }
+                NSApp.mainWindow?.makeFirstResponder(nil)
+                try modelContext.save()
             }
         }
     }
 
-    private func startUpdate() {
-        isShowingUpdatePrompt = false
-        Task { await updateService.downloadAndOpenLatestRelease() }
+    private struct UnfinishedCourseDraft: LocalizedError {
+        var errorDescription: String? { "Finish creating or importing the course, then try the update again." }
+    }
+
+    private var updateFooter: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Syllabi \(updateService.currentVersion)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let release = updateService.availableUpdate {
+                Button {
+                    downloadUpdate(release)
+                } label: {
+                    Label(updateService.isDownloading ? "Update in progress…" :
+                          (updateService.canInstall(release) ? "Update to \(release.version)" : "Download \(release.version) DMG"),
+                          systemImage: "arrow.down.circle")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.liquidGlass(prominent: true, cornerRadius: 10))
+                .disabled(updateService.isDownloading || updateService.isChecking)
+            }
+            if let message = updateService.errorMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if !updateService.hasUpdate, !updateService.isChecking, updateService.lastCheckedAt != nil {
+                Text("You’re up to date").font(.caption).foregroundStyle(.secondary)
+            }
+            Button {
+                Task { await updateService.checkForUpdates(force: true) }
+            } label: {
+                Label(updateService.isChecking ? "Checking…" : "Check for Updates",
+                      systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.link)
+            .disabled(updateService.isChecking || updateService.isDownloading || pendingUpdate != nil)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(.bar)
+        .overlay(alignment: .top) { Divider() }
     }
     private func resetAndOpenNewCourse() {
         blankTitle = ""
@@ -268,22 +347,9 @@ public struct ContentView: View {
 
     // MARK: - Sheets
 
-    @ViewBuilder
     private var importSheetContent: some View {
-        if let fileURL = droppedFileURL {
-            ImportSyllabusSheet(
-                initialMarkdown: (try? String(contentsOf: fileURL, encoding: .utf8)) ?? "",
-                onImportSuccess: { subject in
-                    selection = .subject(subject.id)
-                    droppedFileURL = nil
-                }
-            )
-        } else {
-            ImportSyllabusSheet(
-                onImportSuccess: { subject in
-                    selection = .subject(subject.id)
-                }
-            )
+        ImportSyllabusSheet(initialFileURL: droppedFileURL) { subject in
+            selection = .subject(subject.id)
         }
     }
 

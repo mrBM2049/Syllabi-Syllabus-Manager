@@ -98,6 +98,9 @@ public struct UnitSectionView: View {
                         .focused($isTitleFocused)
                         .onSubmit { saveTitle() }
                         .onExitCommand { isEditingTitle = false }
+                        .onChange(of: isTitleFocused) { _, focused in
+                            if !focused && isEditingTitle { saveTitle() }
+                        }
                 } else {
                     Text(SyllabusTextFormatter.display(unit.title))
                         .font(.system(size: 14.5, weight: .bold))

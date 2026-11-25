@@ -25,4 +25,7 @@ jobs:
         run: swift test
 
       - name: Validate package script
-        run: bash -n scripts/package_dmg.sh scripts/build_and_install.sh
+        run: |
+          bash -n scripts/package_dmg.sh
+          bash -n scripts/build_and_install.sh
+          bash -n scripts/sign_appcast.sh

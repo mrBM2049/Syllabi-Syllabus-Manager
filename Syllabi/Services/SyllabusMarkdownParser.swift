@@ -363,13 +363,15 @@ public struct SyllabusMarkdownParser {
         var tags: [String] = []
 
         while current.hasSuffix("]") {
-            guard let openBracket = current.lastIndex(of: "[") else { break }
+            guard let openBracket = current.lastIndex(of: "["),
+                  openBracket > current.startIndex,
+                  current[current.index(before: openBracket)].isWhitespace else { break }
             let tagContent = current[current.index(after: openBracket)..<current.index(before: current.endIndex)]
                 .trimmingCharacters(in: .whitespaces)
 
             // Check that tag content doesn't contain brackets
             if !tagContent.isEmpty && !tagContent.contains("[") && !tagContent.contains("]") {
-                tags.append(String(tagContent))
+                if !tags.contains(tagContent) { tags.append(String(tagContent)) }
                 current = String(current[..<openBracket]).trimmingCharacters(in: .whitespaces)
             } else {
                 break

@@ -11,6 +11,17 @@ cd "$PROJECT_DIR"
 RELEASE_VERSION="${RELEASE_VERSION:-${GITHUB_REF_NAME:-1.0}}"
 RELEASE_VERSION="${RELEASE_VERSION#v}"
 INSTALL_AFTER_BUILD="${INSTALL_AFTER_BUILD:-0}"
+SPARKLE_PUBLIC_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-}"
+SYLLABI_SIGN_IDENTITY="${SYLLABI_SIGN_IDENTITY:--}"
+
+if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+(\.[0-9]+){0,3}$ ]]; then
+    echo "Error: Expected a numeric Syllabi release version."
+    exit 1
+fi
+if [[ -n "$SPARKLE_PUBLIC_ED_KEY" && ! "$SPARKLE_PUBLIC_ED_KEY" =~ ^[A-Za-z0-9+/]{43}=$ ]]; then
+    echo "Error: SPARKLE_PUBLIC_ED_KEY must contain Sparkle’s base64 public key."
+    exit 1
+fi
 
 DIST_DIR="$PROJECT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/Syllabi.app"
@@ -27,12 +38,20 @@ if [ ! -f "$BIN_PATH" ]; then
     echo "Error: Release binary not found at $BIN_PATH"
     exit 1
 fi
+SPARKLE_ARTIFACT="$PROJECT_DIR/.build/artifacts/sparkle/Sparkle"
+SPARKLE_FRAMEWORK="$SPARKLE_ARTIFACT/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+if [ ! -d "$SPARKLE_FRAMEWORK" ]; then
+    echo "Error: SwiftPM did not resolve the Sparkle framework."
+    exit 1
+fi
 
 # 2. Assemble .app bundle
 echo "==> Creating Syllabi.app bundle..."
 rm -rf "$DIST_DIR"
 mkdir -p "$APP_BUNDLE/Contents/MacOS"
 mkdir -p "$APP_BUNDLE/Contents/Resources"
+mkdir -p "$APP_BUNDLE/Contents/Frameworks"
+ditto "$SPARKLE_FRAMEWORK" "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
 
 cp "$BIN_PATH" "$APP_BUNDLE/Contents/MacOS/Syllabi"
 chmod +x "$APP_BUNDLE/Contents/MacOS/Syllabi"
@@ -40,15 +59,31 @@ chmod +x "$APP_BUNDLE/Contents/MacOS/Syllabi"
 cp "$PROJECT_DIR/Syllabi/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $RELEASE_VERSION" "$APP_BUNDLE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $RELEASE_VERSION" "$APP_BUNDLE/Contents/Info.plist"
+if [[ -n "$SPARKLE_PUBLIC_ED_KEY" ]]; then
+    repository=$(/usr/libexec/PlistBuddy -c 'Print :SyllabiGitHubRepository' "$APP_BUNDLE/Contents/Info.plist")
+    /usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $SPARKLE_PUBLIC_ED_KEY" "$APP_BUNDLE/Contents/Info.plist"
+    /usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://github.com/$repository/releases/latest/download/appcast.xml" "$APP_BUNDLE/Contents/Info.plist"
+fi
 echo -n "APPL????" > "$APP_BUNDLE/Contents/PkgInfo"
 
 if [ -f "$PROJECT_DIR/Syllabi/Resources/AppIcon.icns" ]; then
     cp "$PROJECT_DIR/Syllabi/Resources/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 fi
 
-# 3. Ad-hoc codesign with entitlements
+# 3. Sign from the nested Sparkle helpers outward.
 echo "==> Signing Syllabi.app..."
-codesign --force --deep --sign - \
+SIGN_FLAGS=(--force --sign "$SYLLABI_SIGN_IDENTITY")
+if [[ "$SYLLABI_SIGN_IDENTITY" != "-" ]]; then
+    SIGN_FLAGS+=(--options runtime --timestamp)
+fi
+EMBEDDED_SPARKLE="$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
+SPARKLE_VERSION_DIR="$EMBEDDED_SPARKLE/Versions/Current"
+codesign "${SIGN_FLAGS[@]}" "$SPARKLE_VERSION_DIR/XPCServices/Installer.xpc"
+codesign "${SIGN_FLAGS[@]}" --preserve-metadata=entitlements "$SPARKLE_VERSION_DIR/XPCServices/Downloader.xpc"
+codesign "${SIGN_FLAGS[@]}" "$SPARKLE_VERSION_DIR/Autoupdate"
+codesign "${SIGN_FLAGS[@]}" "$SPARKLE_VERSION_DIR/Updater.app"
+codesign "${SIGN_FLAGS[@]}" "$EMBEDDED_SPARKLE"
+codesign "${SIGN_FLAGS[@]}" \
     --entitlements "$PROJECT_DIR/Syllabi/Syllabi.entitlements" \
     "$APP_BUNDLE"
 

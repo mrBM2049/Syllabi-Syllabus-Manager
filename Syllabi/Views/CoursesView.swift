@@ -384,6 +384,7 @@ public struct CoursesView: View {
                     } label: {
                         Label("Make Current Project", systemImage: "target")
                     }
+                    Button("Copy Syllabus Markdown") { SyllabusShareHelper.copyMarkdown(subject) }
 
                     Divider()
 

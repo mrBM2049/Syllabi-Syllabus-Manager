@@ -5,9 +5,33 @@ final class SyllabusMarkdownParserTests: XCTestCase {
 
     func testSyllabusExpressionDisplayFormatting() {
         XCTAssertEqual(
-            SyllabusTextFormatter.display("($f = F/F_s$), $\\delta[n]$, u[n], u_r[n], a^n$"),
-            "(f = F/F_s), δ[n], u[n], u_r[n], a^n"
+            SyllabusTextFormatter.display("($f = F/F_s$), $\\delta[n], u[n], u_r[n], a^n$"),
+            "(f = F/Fₛ), δ[n], u[n], uᵣ[n], aⁿ"
         )
+        XCTAssertEqual(SyllabusTextFormatter.display("Fees: $20 and $50"), "Fees: $20 and $50")
+    }
+
+    func testSequenceIndicesSurviveTrailingTagExtraction() {
+        let result = SyllabusMarkdownParser.extractTrailingTags(from: "Evaluate u[n] [Exam] [Exam]")
+        XCTAssertEqual(result.title, "Evaluate u[n]")
+        XCTAssertEqual(result.tags, ["Exam"])
+    }
+
+    func testOversizedSyllabusIsRejected() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data(repeating: 0, count: SyllabusFile.maximumBytes + 1).write(to: url)
+        XCTAssertThrowsError(try SyllabusFile.read(url)) { error in
+            XCTAssertEqual(error as? SyllabusFile.ReadError, .tooLarge)
+        }
+    }
+
+    func testEmptyReplacementKeepsExistingSyllabus() {
+        let subject = Subject(title: "Existing")
+        subject.units = [SyllabusUnit(title: "Keep this", subject: subject)]
+        SyllabusShareHelper.updateSubject(subject, with: ParsedSyllabus())
+        XCTAssertEqual(subject.title, "Existing")
+        XCTAssertEqual(subject.units.map(\.title), ["Keep this"])
     }
 
     func testStandardSyllabusParsing() {

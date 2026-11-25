@@ -30,20 +30,22 @@ public struct WhatsNewView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Syllabi \(version)")
                             .font(.system(size: 30, weight: .bold, design: .rounded))
-                        Text(releaseName)
-                            .font(.title3.weight(.medium))
-                            .foregroundStyle(SyllabiTheme.secondaryText)
+                        if !releaseName.isEmpty && releaseName != "v\(version)" {
+                            Text(releaseName)
+                                .font(.title3.weight(.medium))
+                                .foregroundStyle(SyllabiTheme.secondaryText)
+                        }
                     }
 
                     if releaseNotes.isEmpty {
-                        feature(title: "A cleaner workspace", icon: "rectangle.3.group", color: SyllabiTheme.lavender) {
-                            Text("A consistent top navigation bar keeps Overview, Courses, Lessons, Calendar, and your active notebook within reach.")
+                        feature(title: "Updates in the sidebar", icon: "arrow.down.circle", color: SyllabiTheme.lavender) {
+                            Text("Check for updates whenever you like and choose when to download an available installer.")
                         }
-                        feature(title: "More readable colors", icon: "paintpalette", color: SyllabiTheme.mint) {
-                            Text("Accessible semantic colors now adapt across light and dark mode without changing the meaning of progress states.")
+                        feature(title: "Copy syllabus Markdown", icon: "doc.on.doc", color: SyllabiTheme.mint) {
+                            Text("Copy a course’s topics, progress, and notes from its context menu.")
                         }
-                        feature(title: "One-click updates", icon: "arrow.down.circle", color: SyllabiTheme.peach) {
-                            Text("When a GitHub release is available, Syllabi can download the latest DMG and open it for installation.")
+                        feature(title: "Readable syllabus notation", icon: "function", color: SyllabiTheme.peach) {
+                            Text("Common math symbols and scripts display clearly while the original Markdown stays editable.")
                         }
                     } else {
                         Text(releaseNotes)

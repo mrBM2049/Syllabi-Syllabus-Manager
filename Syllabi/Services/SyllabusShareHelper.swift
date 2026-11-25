@@ -3,6 +3,13 @@ import AppKit
 import UniformTypeIdentifiers
 
 public enum SyllabusShareHelper {
+    @MainActor
+    static func copyMarkdown(_ subject: Subject) {
+        let markdown = SyllabusMarkdownExporter.export(subject: subject)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(markdown, forType: .string)
+    }
+
     /// Opens the native macOS sharing service picker (AirDrop, Messages, Mail, Notes, etc.)
     @MainActor
     public static func shareSubject(_ subject: Subject, from sourceView: NSView? = nil) {
@@ -68,12 +75,20 @@ public enum SyllabusShareHelper {
         openPanel.begin { response in
             if response == .OK, let selectedURL = openPanel.url {
                 do {
-                    let content = try String(contentsOf: selectedURL, encoding: .utf8)
-                    let parsed = SyllabusMarkdownParser.parse(markdown: content)
+                    let content = try SyllabusFile.read(selectedURL)
+                    let parsed = SyllabusMarkdownParser.parse(markdown: content, fallbackTitle: subject.title)
+                    guard parsed.totalTopicsCount > 0 else { throw SyllabusFile.ReadError.noTopics }
                     updateSubject(subject, with: parsed)
                     completion(true)
                 } catch {
-                    print("Error reading update syllabus file: \(error)")
+                    let alert = NSAlert()
+                    alert.messageText = "Couldn’t update the syllabus"
+                    alert.informativeText = error.localizedDescription
+                    if let window = NSApp.keyWindow {
+                        alert.beginSheetModal(for: window)
+                    } else {
+                        alert.runModal()
+                    }
                     completion(false)
                 }
             } else {
@@ -84,6 +99,7 @@ public enum SyllabusShareHelper {
 
     /// Updates an existing subject from parsed syllabus while preserving completed status for matching topics
     public static func updateSubject(_ subject: Subject, with parsed: ParsedSyllabus) {
+        guard parsed.totalTopicsCount > 0 else { return }
         // Collect existing completed states and notes keyed by trimmed title
         var existingCompletedMap: [String: Bool] = [:]
         var existingNotesMap: [String: String] = [:]

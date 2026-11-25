@@ -114,15 +114,20 @@ git tag v1.1.0
 git push origin v1.1.0
 ```
 
-The app is configured for `mrBM2049/Syllabi-Syllabus-Manager` and checks that repository's GitHub Releases API when it launches. When a newer DMG is available, the top bar shows **Update available**; clicking it downloads the DMG and opens it so the user can replace the installed app. The sparkle button opens the in-app **What’s New** screen once per installed version.
+Syllabi checks the public GitHub Releases feed at launch and when you return to the app, at most once every 15 minutes. **Check for Updates** in the sidebar checks immediately. For a signed release, **Update** starts the download. **Install and Relaunch** saves open changes and replaces the app bundle while preserving the existing SwiftData store. After installing a different version, Syllabi shows **What’s New** once.
 
-Each release is a separate tagged release on the same GitHub Releases page. Create the next one by tagging and pushing a new version:
+### Enable installation and relaunch
+
+1. Run `swift package resolve`, then use Sparkle’s `.build/artifacts/sparkle/Sparkle/bin/generate_keys --account syllabi` to create and store the signing key in Keychain.
+2. In GitHub repository settings, add the printed public key as the Actions variable `SPARKLE_PUBLIC_ED_KEY`. Keep the private key in Keychain and retain a secure backup.
+3. Build locally with `SPARKLE_PUBLIC_ED_KEY` and `RELEASE_VERSION` set, then run `bash scripts/sign_appcast.sh`. Push the version tag and attach `Syllabi.dmg` and `dist/appcast.xml` to its GitHub release. Actions checks the build and leaves publication to the signer. If you explicitly configure a matching private key as the Actions secret `SPARKLE_PRIVATE_ED_KEY`, Actions can sign and publish both files.
+4. Install the first Sparkle-enabled build manually. Later versions with the same signing key can be downloaded, installed, and relaunched from the app.
+
+Create each release with a new version tag:
 
 ```bash
 git tag -a v1.1.0 -m "Release 1.1.0"
 git push origin v1.1.0
 ```
 
-GitHub Actions then tests the app, builds `Syllabi.dmg`, and attaches it to the new release. Keep using a new tag (`v1.2.0`, `v2.0.0`, etc.); do not overwrite an existing tag.
-
-For a seamless update experience without Gatekeeper warnings, publish signed and notarized builds using an Apple Developer certificate and notarization credentials in GitHub Actions. The current workflow intentionally uses the existing ad-hoc signing path so it remains runnable without private secrets.
+For public distribution, Apple Developer ID signing and notarization handle macOS Gatekeeper. The packaging script accepts an optional `SYLLABI_SIGN_IDENTITY` from the local or CI keychain. Sparkle’s separate signing keys authorize the appcast and installer.

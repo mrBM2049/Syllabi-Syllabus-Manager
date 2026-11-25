@@ -68,7 +68,7 @@ public struct TopicRowView: View {
                         .font(.system(size: 13.5, weight: .regular))
                         .focused($isTitleFocused)
                         .onSubmit { saveTitle() }
-                        .onExitCommand { saveTitle() }
+                        .onExitCommand { isEditingTitle = false }
                         .onChange(of: isTitleFocused) { _, focused in
                             if !focused && isEditingTitle { saveTitle() }
                         }
@@ -290,7 +290,7 @@ public struct SubtopicRowView: View {
                         .font(.system(size: 12.5, weight: .regular))
                         .focused($isTitleFocused)
                         .onSubmit { saveTitle() }
-                        .onExitCommand { saveTitle() }
+                        .onExitCommand { isEditingTitle = false }
                         .onChange(of: isTitleFocused) { _, focused in
                             if !focused && isEditingTitle { saveTitle() }
                         }
